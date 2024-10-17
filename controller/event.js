@@ -15,6 +15,38 @@ const getEventDetails = async (req, res) => {
   }
 }
 
+const SaveAttendedEvents = async (req, res) => {
+  try {
+    
+    const event = await Event.findById(req.params.eventId).populate('userId', 'name email isVerified lastName profileImage');
+    if (!event) {
+      return res.status(404).json({ message: 'Event not found' });
+    }
+
+    const userId = req.params.id;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.eventsHosted.attendedEvents= user.eventsHosted.attendedEvents || 0;
+    user.eventsHosted.attendedEvents+= 1;
+
+    await user.save();
+
+    res.json({
+      message: 'Event attendance updated successfully',
+      attendedEvents: user.attendedEvents,
+      eventsHosted: user.eventsHosted,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+}
+
 const createEvent = async (req, res) => {
   const {
     eventName,
@@ -32,7 +64,7 @@ const createEvent = async (req, res) => {
   console.log(req.body);
 
   const isPaidEvent = isFree === 'false';
-  
+
 
   const eventImages = req.files;
 
@@ -45,7 +77,7 @@ const createEvent = async (req, res) => {
     return res.status(400).json({ message: 'Payment method and cardDetails are required for paid events.' });
   }
 
-  try {    
+  try {
     const event = await Event.create({
       userId,
       eventName,
@@ -61,7 +93,7 @@ const createEvent = async (req, res) => {
         url: file.path,
         name: file.originalname,
       })) : [],
-      paymentDetails: isPaidEvent ? JSON.parse(cardDetails)  : null
+      paymentDetails: isPaidEvent ? JSON.parse(cardDetails) : null
     });
 
     const user = await User.findById(userId);
@@ -120,19 +152,19 @@ const SaveEvent = async (req, res) => {
 
     let updatedUser;
     if (isEventSaved) {
-     
+
       updatedUser = await User.findByIdAndUpdate(
         userId,
-        { $pull: { savedEvents: eventId } }, 
-        { new: true }  
+        { $pull: { savedEvents: eventId } },
+        { new: true }
       );
       res.status(200).json({ message: 'Event removed from saved events', user: updatedUser.savedEvents.length });
     } else {
-      
+
       updatedUser = await User.findByIdAndUpdate(
         userId,
-        { $addToSet: { savedEvents: eventId } },  
-        { new: true }  
+        { $addToSet: { savedEvents: eventId } },
+        { new: true }
       );
       res.status(200).json({ message: 'Event added to saved events', user: updatedUser.savedEvents.length });
     }
@@ -142,4 +174,4 @@ const SaveEvent = async (req, res) => {
 };
 
 
-module.exports = { getEventDetails, createEvent, fetchEvents , SaveEvent};
+module.exports = { getEventDetails, createEvent, fetchEvents, SaveEvent, SaveAttendedEvents };
